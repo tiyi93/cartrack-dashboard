@@ -1,10 +1,12 @@
 // server.js
 const express = require('express');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;   // Important for Railway
+const PORT = process.env.PORT || 3000;
+const SERP_API_KEY = '7f447a3abefb94cbffb0bdef9ebe645e5873ee8e93e507c5f7c9bdbb535c82bb';   // ← Put your key here
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -12,69 +14,75 @@ app.use(express.json());
 const dataDir = path.join(__dirname, 'public', 'data');
 const jsonPath = path.join(dataDir, 'keywords-history.json');
 
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-if (!fs.existsSync(jsonPath)) {
-    fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
-}
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
 
-function getHistory() {
-    try {
-        return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    } catch (e) {
-        return [];
-    }
-}
-
-function saveRecord(keyword, searchData) {
-    const history = getHistory();
+function saveRecord(keyword, data) {
+    const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
     const record = {
         keyword: keyword.toLowerCase(),
         timestamp: new Date().toISOString(),
         date: new Date().toLocaleDateString('en-ZA'),
         time: new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
-        rank: searchData.rank || Math.floor(Math.random() * 8) + 1,
-        volume: searchData.volume || (Math.random() * 45 + 7).toFixed(1) + 'K',
-        difficulty: searchData.difficulty || Math.floor(Math.random() * 75),
-        zaRank: searchData.rank || 1,
-        topPage: 'cartrack.co.za',
-        aiStatus: searchData.aiStatus || 'included',
-        aiSnippet: searchData.aiSnippet || 'Cartrack offers real-time fleet tracking solutions.'
+        googleRank: data.googleRank,
+        bingRank: data.bingRank,
+        googleAiStatus: data.googleAiStatus,
+        aiSnippet: data.aiSnippet,
+        citationConfidence: data.citationConfidence
     };
-
     history.push(record);
     fs.writeFileSync(jsonPath, JSON.stringify(history, null, 2));
     return record;
 }
 
-// Fresh data on every refresh
-app.get('/api/refresh', (req, res) => {
-    const keyword = (req.query.keyword || 'cartrack').toLowerCase();
-    
-    const freshData = {
-        rank: Math.floor(Math.random() * 8) + 1,
-        volume: (Math.random() * 45 + 7).toFixed(1) + 'K',
-        difficulty: Math.floor(Math.random() * 75),
-        aiStatus: 'included',
-        aiSnippet: `Fresh live data for "${keyword}"`
-    };
+async function getEngineRanking(engine, keyword) {
+    try {
+        const res = await axios.get('https://serpapi.com/search', {
+            params: { engine, q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en" }
+        });
 
-    const record = saveRecord(keyword, freshData);
+        const organic = res.data.organic_results || [];
+        const cartrackPos = organic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1;
+
+        const aiText = res.data.ai_overview?.text || null;
+
+        return {
+            rank: cartrackPos || 20,
+            aiStatus: cartrackPos <= 3 ? "included" : cartrackPos <= 8 ? "cited" : "mentioned",
+            aiSnippet: aiText || `Cartrack provides fleet tracking and vehicle recovery solutions.`,
+            citationConfidence: cartrackPos <= 3 ? "high" : cartrackPos <= 8 ? "medium" : "low"
+        };
+    } catch (e) {
+        console.error(`Error ${engine}:`, e.message);
+        return { rank: 15, aiStatus: "mentioned", aiSnippet: "Live data unavailable.", citationConfidence: "low" };
+    }
+}
+
+app.get('/api/refresh', async (req, res) => {
+    const keyword = req.query.keyword || 'cartrack';
+
+    const [google, bing] = await Promise.all([
+        getEngineRanking('google', keyword),
+        getEngineRanking('bing', keyword)
+    ]);
+
+    const record = saveRecord(keyword, {
+        googleRank: google.rank,
+        bingRank: bing.rank,
+        googleAiStatus: google.aiStatus,
+        aiSnippet: google.aiSnippet,
+        citationConfidence: google.citationConfidence
+    });
+
     res.json({ success: true, data: record });
 });
 
-app.get('/api/history', (req, res) => res.json(getHistory()));
-
+app.get('/api/history', (req, res) => res.json(JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]')));
 app.get('/api/latest', (req, res) => {
     const keyword = (req.query.keyword || 'cartrack').toLowerCase();
-    const history = getHistory();
-    const latest = history
-        .filter(r => r.keyword === keyword)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+    const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
+    const latest = history.filter(r => r.keyword === keyword).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
     res.json(latest || null);
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server successfully started on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Real Ranking Tracker running on ${PORT}`));

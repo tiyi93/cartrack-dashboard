@@ -150,59 +150,53 @@ async function refreshAndGetLatest(keyword) {
 }
 
 async function updateOverview(keyword) {
-    const data = await refreshAndGetLatest(keyword);
-    if (!data) return;
+    const statusEl = document.getElementById('status');
+    statusEl.style.display = 'block';
+    statusEl.textContent = `Fetching real rankings for "${keyword}"...`;
 
-    const searchHTML = `
+    const res = await fetch(`/api/refresh?keyword=${encodeURIComponent(keyword)}`);
+    const result = await res.json();
+
+    statusEl.style.display = 'none';
+
+    const data = result.data;
+
+    // Traditional + AI Cards
+    const html = `
         <div class="rank-card">
-            <h3><i class="fas fa-search"></i> Traditional search</h3>
-            <div class="rank-big"><span class="rank-number">#${data.rank}</span><span class="rank-label">position</span></div>
+            <h3><i class="fas fa-search"></i> Google</h3>
+            <div class="rank-big"><span class="rank-number">#${data.googleRank}</span><span class="rank-label">position</span></div>
             <div class="extra-meta">
-                <span><i class="fas fa-volume-up"></i> Volume: ${data.volume}</span>
-                <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty}</span>
-                <span><i class="fas fa-flag"></i> ZA rank: #${data.rank}</span>
-            </div>
-            <div class="keyword-detail-box">
-                <div><span class="label"><i class="fas fa-link"></i> Top page:</span> cartrack.co.za</div>
-                <div style="margin-top:4px;"><span class="label"><i class="fas fa-calendar-week"></i> Last update:</span> ${data.date} ${data.time}</div>
+                <span><i class="fas fa-flag"></i> Organic Rank</span>
             </div>
         </div>
-    `;
 
-    const aiHTML = `
         <div class="rank-card">
-            <h3><i class="fas fa-brain"></i> AI search / GEO</h3>
-            <div class="rank-big"><span class="rank-number">${data.aiStatus}</span><span class="rank-label">visibility</span></div>
-            <div class="extra-meta">
-                <span><i class="fas fa-robot"></i> 5 platforms</span>
-                <span><i class="fas fa-check-circle" style="color:#15803d;"></i> cited</span>
-                <span><i class="fas fa-globe"></i> AI answer presence</span>
-            </div>
+            <h3><i class="fas fa-search"></i> Bing / Edge</h3>
+            <div class="rank-big"><span class="rank-number">#${data.bingRank}</span><span class="rank-label">position</span></div>
+        </div>
+
+        <div class="rank-card">
+            <h3><i class="fas fa-brain"></i> AI Search</h3>
+            <div class="rank-big"><span class="rank-number">${data.googleAiStatus}</span></div>
             <div class="keyword-detail-box">
                 <div><span class="label"><i class="fas fa-quote-right"></i> AI snippet:</span> “${data.aiSnippet}”</div>
+                <div style="margin-top:6px;"><span class="label"><i class="fas fa-hashtag"></i> Citation confidence:</span> ${data.citationConfidence}</div>
             </div>
         </div>
     `;
 
-    document.getElementById('resultsContainer').innerHTML = searchHTML + aiHTML;
+    document.getElementById('resultsContainer').innerHTML = html;
 
-    // Extra sections
+    // Extra Details
     document.getElementById('extraDetailRow').innerHTML = `
         <div style="background: white; border-radius: 24px; padding: 16px 22px 22px; border:1px solid #e9edf2;">
-            <h4 style="display:flex; gap:8px; font-weight:600; font-size:1rem;"><i class="fas fa-arrow-trend-up" style="color:#2563eb;"></i> Search ranking over time</h4>
-            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:10px;">
-                <div><span style="color:#64748b;">Today</span> <strong>#${data.rank}</strong></div>
-                <div><span style="color:#64748b;">Trend</span> <span style="background:#dcfce7; padding:0 12px; border-radius:30px; color:#166534;">improving</span></div>
-            </div>
+            <h4><i class="fas fa-arrow-trend-up" style="color:#2563eb;"></i> Search ranking over time</h4>
+            <div style="margin-top:10px;">Latest Google Rank: <strong>#${data.googleRank}</strong></div>
         </div>
         <div style="background: white; border-radius: 24px; padding: 16px 22px 22px; border:1px solid #e9edf2;">
-            <h4 style="display:flex; gap:8px; font-weight:600; font-size:1rem;"><i class="fas fa-comment-dots" style="color:#7c3aed;"></i> AI ranking context</h4>
-            <div style="display:flex; flex-wrap:wrap; gap:12px 24px; margin-top:10px;">
-                <div><span style="color:#64748b;">ChatGPT</span> <span style="background:#dbeafe; padding:0 12px; border-radius:30px;">top 3</span></div>
-                <div><span style="color:#64748b;">Claude</span> <span style="background:#dbeafe; padding:0 12px; border-radius:30px;">cited</span></div>
-                <div><span style="color:#64748b;">Perplexity</span> <span style="background:#fef9c3; padding:0 12px; border-radius:30px;">present</span></div>
-                <div><span style="color:#64748b;">Gemini</span> <span style="background:#e0e7ff; padding:0 12px; border-radius:30px;">mentioned</span></div>
-            </div>
+            <h4><i class="fas fa-comment-dots" style="color:#7c3aed;"></i> AI ranking context</h4>
+            <div style="margin-top:10px;">Confidence: <strong>${data.citationConfidence}</strong></div>
         </div>
     `;
 }
