@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -12,80 +12,57 @@ app.use(express.json());
 const dataDir = path.join(__dirname, 'public', 'data');
 const jsonPath = path.join(dataDir, 'keywords-history.json');
 
-// Ensure directory and file exist on startup
-function initializeStorage() {
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log('✅ Created data directory');
-    }
-    
-    if (!fs.existsSync(jsonPath)) {
-        fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
-        console.log('✅ Created keywords-history.json with empty array');
-    } else {
-        console.log('✅ Found existing keywords-history.json');
-    }
-}
-
-initializeStorage();
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
 
 function getHistory() {
     try {
-        const data = fs.readFileSync(jsonPath, 'utf-8');
-        return JSON.parse(data);
+        return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
     } catch (e) {
-        console.error('Error reading history:', e);
         return [];
     }
 }
 
 function saveRecord(keyword, searchData) {
     const history = getHistory();
-    
     const record = {
         keyword: keyword.toLowerCase(),
         timestamp: new Date().toISOString(),
         date: new Date().toLocaleDateString('en-ZA'),
         time: new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
-        month: new Date().toLocaleString('en-ZA', { month: 'long', year: 'numeric' }),
-        rank: searchData.rank || 1,
-        volume: searchData.volume || '12.5K',
-        difficulty: searchData.difficulty || 35,
-        zaRank: searchData.zaRank || 1,
+        rank: searchData.rank || Math.floor(Math.random() * 8) + 1,
+        volume: searchData.volume || (Math.random() * 40 + 8).toFixed(1) + 'K',
+        difficulty: searchData.difficulty || Math.floor(Math.random() * 70),
+        zaRank: searchData.rank || 1,
         topPage: 'cartrack.co.za',
         aiStatus: searchData.aiStatus || 'included',
-        aiSnippet: searchData.aiSnippet || 'Cartrack offers real-time fleet tracking solutions...',
-        aiPlatforms: '5',
-        aiContext: 'Strong AI visibility'
+        aiSnippet: searchData.aiSnippet || 'Cartrack offers real-time fleet tracking and vehicle recovery solutions in South Africa.'
     };
 
     history.push(record);
     fs.writeFileSync(jsonPath, JSON.stringify(history, null, 2));
-    console.log(`✅ Saved record for "${keyword}" at ${record.time}`);
     return record;
 }
 
-// Refresh endpoint
+// IMPORTANT: This now ALWAYS returns fresh data on /api/refresh
 app.get('/api/refresh', async (req, res) => {
     const keyword = (req.query.keyword || 'cartrack').toLowerCase();
     
-    const searchData = {
+    // Simulate fresh search (replace later with SerpAPI)
+    const freshData = {
         rank: Math.floor(Math.random() * 8) + 1,
-        volume: (Math.random() * 40 + 5).toFixed(1) + 'K',
-        difficulty: Math.floor(Math.random() * 70),
-        aiStatus: 'included'
+        volume: (Math.random() * 45 + 7).toFixed(1) + 'K',
+        difficulty: Math.floor(Math.random() * 75),
+        aiStatus: 'included',
+        aiSnippet: `Fresh data for "${keyword}" - Real-time fleet management and tracking solutions.`
     };
 
-    const record = saveRecord(keyword, searchData);
+    const record = saveRecord(keyword, freshData);
     res.json({ success: true, data: record });
 });
 
-// Get full history
-app.get('/api/history', (req, res) => {
-    res.json(getHistory());
-});
+app.get('/api/history', (req, res) => res.json(getHistory()));
 
-// Get latest for a keyword
 app.get('/api/latest', (req, res) => {
     const keyword = (req.query.keyword || 'cartrack').toLowerCase();
     const history = getHistory();
@@ -96,6 +73,5 @@ app.get('/api/latest', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`\n🚀 Server running at http://localhost:${PORT}`);
-    console.log(`📁 JSON file: ${jsonPath}\n`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
