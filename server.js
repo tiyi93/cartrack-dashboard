@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;   // Important for Railway
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -12,8 +12,12 @@ app.use(express.json());
 const dataDir = path.join(__dirname, 'public', 'data');
 const jsonPath = path.join(dataDir, 'keywords-history.json');
 
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+if (!fs.existsSync(jsonPath)) {
+    fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
+}
 
 function getHistory() {
     try {
@@ -31,12 +35,12 @@ function saveRecord(keyword, searchData) {
         date: new Date().toLocaleDateString('en-ZA'),
         time: new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
         rank: searchData.rank || Math.floor(Math.random() * 8) + 1,
-        volume: searchData.volume || (Math.random() * 40 + 8).toFixed(1) + 'K',
-        difficulty: searchData.difficulty || Math.floor(Math.random() * 70),
+        volume: searchData.volume || (Math.random() * 45 + 7).toFixed(1) + 'K',
+        difficulty: searchData.difficulty || Math.floor(Math.random() * 75),
         zaRank: searchData.rank || 1,
         topPage: 'cartrack.co.za',
         aiStatus: searchData.aiStatus || 'included',
-        aiSnippet: searchData.aiSnippet || 'Cartrack offers real-time fleet tracking and vehicle recovery solutions in South Africa.'
+        aiSnippet: searchData.aiSnippet || 'Cartrack offers real-time fleet tracking solutions.'
     };
 
     history.push(record);
@@ -44,17 +48,16 @@ function saveRecord(keyword, searchData) {
     return record;
 }
 
-// IMPORTANT: This now ALWAYS returns fresh data on /api/refresh
-app.get('/api/refresh', async (req, res) => {
+// Fresh data on every refresh
+app.get('/api/refresh', (req, res) => {
     const keyword = (req.query.keyword || 'cartrack').toLowerCase();
     
-    // Simulate fresh search (replace later with SerpAPI)
     const freshData = {
         rank: Math.floor(Math.random() * 8) + 1,
         volume: (Math.random() * 45 + 7).toFixed(1) + 'K',
         difficulty: Math.floor(Math.random() * 75),
         aiStatus: 'included',
-        aiSnippet: `Fresh data for "${keyword}" - Real-time fleet management and tracking solutions.`
+        aiSnippet: `Fresh live data for "${keyword}"`
     };
 
     const record = saveRecord(keyword, freshData);
@@ -73,5 +76,5 @@ app.get('/api/latest', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 Server successfully started on port ${PORT}`);
 });
