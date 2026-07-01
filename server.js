@@ -6,7 +6,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SERP_API_KEY = '7f447a3abefb94cbffb0bdef9ebe645e5873ee8e93e507c5f7c9bdbb535c82bb';   // ← Put your key here
+const SERP_API_KEY = process.env.SERP_API_KEY;   // ← Put your key here
 
 app.use(express.static('public'));
 app.use(express.json());
