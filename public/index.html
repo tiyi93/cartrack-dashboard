@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartrack · Keyword Deep Review (Live + History)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f1f5f9; padding: 28px 20px; color: #0f172a; }
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 28px; }
+        .dashboard-header h1 { font-weight: 600; font-size: 2rem; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+        .badge-date { background: white; padding: 8px 20px; border-radius: 60px; border: 1px solid #e2e8f0; font-size: 0.9rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+
+        /* Tabs */
+        .tabs { display: flex; background: white; border-radius: 60px; padding: 6px; margin-bottom: 20px; width: fit-content; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .tab { padding: 10px 28px; border-radius: 60px; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .tab.active { background: #2563eb; color: white; }
+
+        /* Search Card */
+        .search-card { background: white; border-radius: 32px; padding: 24px 28px 28px; box-shadow: 0 6px 18px rgba(0,0,0,0.02); border: 1px solid #e9edf2; margin-bottom: 30px; }
+        .search-row { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+        .search-row .field { flex: 2 1 260px; }
+        .search-row .field label { display: block; font-weight: 500; font-size: 0.9rem; color: #334155; margin-bottom: 6px; }
+        .search-row .field input { width: 100%; padding: 12px 18px; border-radius: 60px; border: 1px solid #d1d9e6; font-size: 1rem; background: #fafcff; transition: 0.15s; }
+        .search-row .field input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        .btn { padding: 12px 28px; border-radius: 60px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; }
+
+        /* Sample Chips - EXACT original styles */
+        .sample-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+        .sample-chip { 
+            background: #eef2ff; 
+            border-radius: 40px; 
+            padding: 4px 18px; 
+            font-size: 0.85rem; 
+            color: #1e293b; 
+            cursor: pointer; 
+            transition: 0.1s; 
+            border: 1px solid transparent; 
+        }
+        .sample-chip:hover { 
+            background: #dbeafe; 
+            border-color: #b9c7f0; 
+        }
+
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 780px) { .results-grid { grid-template-columns: 1fr; } }
+
+        .rank-card { background: white; border-radius: 28px; padding: 20px 24px 26px; border: 1px solid #e9edf2; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+        .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+        .rank-number { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; }
+        .extra-meta { background: #f8fafc; border-radius: 18px; padding: 12px 16px; margin: 14px 0 6px; display: flex; flex-wrap: wrap; gap: 10px 24px; font-size: 0.9rem; }
+        .ai-list { margin-top: 12px; }
+        .ai-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .ai-status { padding: 2px 14px; border-radius: 40px; font-size: 0.75rem; font-weight: 600; }
+        .ai-status.included { background: #dcfce7; color: #166534; }
+        .ai-status.cited { background: #fef9c3; color: #854d0e; }
+        .keyword-detail-box { margin-top: 16px; background: #fafcff; border-radius: 20px; padding: 14px 18px; border: 1px solid #eef2f6; }
+
+        .chart-container { background: white; border-radius: 24px; padding: 20px; margin: 24px 0; border: 1px solid #e9edf2; }
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .history-table th, .history-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .history-table th { background: #f8fafc; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="dashboard-header">
+        <h1>
+            <i class="fas fa-magnifying-glass-chart" style="color:#2563eb;"></i> Keyword review
+            <small>cartrack.co.za · search + AI ranking</small>
+        </h1>
+        <div class="badge-date"><i class="far fa-calendar-alt" style="margin-right: 8px;"></i> <span id="lastUpdated">live data</span></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="overview">Overview</div>
+        <div class="tab" data-tab="history">History & Trends</div>
+    </div>
+
+    <div class="search-card">
+        <div class="search-row">
+            <div class="field">
+                <label for="keywordInput"><i class="fas fa-key"></i> Enter keyword</label>
+                <input type="text" id="keywordInput" placeholder="e.g. cartrack, vehicle tracking, fleet management" value="cartrack">
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" id="searchBtn"><i class="fas fa-arrow-right"></i> Review Live</button>
+                <button class="btn btn-outline" id="refreshBtn"><i class="fas fa-sync"></i> Refresh Data</button>
+            </div>
+        </div>
+        
+        <!-- Sample Chips - Fully styled -->
+        <div class="sample-chips">
+            <span class="sample-chip" data-kw="cartrack">cartrack</span>
+            <span class="sample-chip" data-kw="vehicle tracking">vehicle tracking</span>
+            <span class="sample-chip" data-kw="fleet management">fleet management</span>
+            <span class="sample-chip" data-kw="cartrack login">cartrack login</span>
+            <span class="sample-chip" data-kw="car tracker">car tracker</span>
+        </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div id="overview-tab">
+        <div class="results-grid" id="resultsContainer"></div>
+        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;" id="extraDetailRow"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="history-tab" style="display:none;">
+        <div class="chart-container">
+            <h3><i class="fas fa-chart-line"></i> Ranking Trend Over Time</h3>
+            <canvas id="rankChart" height="110"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3><i class="fas fa-chart-bar"></i> Volume Trend</h3>
+            <canvas id="volumeChart" height="110"></canvas>
+        </div>
+        <div style="background:white; border-radius:24px; padding:20px; border:1px solid #e9edf2;">
+            <h3><i class="fas fa-history"></i> Full History</h3>
+            <table class="history-table" id="historyTable">
+                <thead><tr><th>Date</th><th>Time</th><th>Rank</th><th>Volume</th><th>Difficulty</th><th>AI Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// ... (same script as previous version - no changes needed here)
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('overview-tab').style.display = tab.dataset.tab === 'overview' ? 'block' : 'none';
+        document.getElementById('history-tab').style.display = tab.dataset.tab === 'history' ? 'block' : 'none';
+        if (tab.dataset.tab === 'history') loadHistory();
+    });
+});
+
+async function refreshAndGetLatest(keyword) {
+    await fetch(`/api/refresh?keyword=${encodeURIComponent(keyword)}`);
+    const res = await fetch(`/api/latest?keyword=${encodeURIComponent(keyword)}`);
+    return res.json();
+}
+
+async function updateOverview(keyword) {
+    const data = await refreshAndGetLatest(keyword);
+    if (!data) return;
+
+    const searchHTML = `
+        <div class="rank-card">
+            <h3><i class="fas fa-search"></i> Traditional search</h3>
+            <div class="rank-big"><span class="rank-number">#${data.rank}</span><span class="rank-label">position</span></div>
+            <div class="extra-meta">
+                <span><i class="fas fa-volume-up"></i> Volume: ${data.volume}</span>
+                <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty}</span>
+                <span><i class="fas fa-flag"></i> ZA rank: #${data.rank}</span>
+            </div>
+            <div class="keyword-detail-box">
+                <div><span class="label"><i class="fas fa-link"></i> Top page:</span> cartrack.co.za</div>
+                <div style="margin-top:4px;"><span class="label"><i class="fas fa-calendar-week"></i> Last update:</span> ${data.date} ${data.time}</div>
+            </div>
+        </div>
+    `;
+
+    const aiHTML = `
+        <div class="rank-card">
+            <h3><i class="fas fa-brain"></i> AI search / GEO</h3>
+            <div class="rank-big"><span class="rank-number">${data.aiStatus}</span><span class="rank-label">visibility</span></div>
+            <div class="extra-meta">
+                <span><i class="fas fa-robot"></i> 5 platforms</span>
+                <span><i class="fas fa-check-circle" style="color:#15803d;"></i> cited</span>
+                <span><i class="fas fa-globe"></i> AI answer presence</span>
+            </div>
+            <div class="keyword-detail-box">
+                <div><span class="label"><i class="fas fa-quote-right"></i> AI snippet:</span> “${data.aiSnippet}”</div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('resultsContainer').innerHTML = searchHTML + aiHTML;
+
+    // Extra sections
+    document.getElementById('extraDetailRow').innerHTML = `
+        <div style="background: white; border-radius: 24px; padding: 16px 22px 22px; border:1px solid #e9edf2;">
+            <h4 style="display:flex; gap:8px; font-weight:600; font-size:1rem;"><i class="fas fa-arrow-trend-up" style="color:#2563eb;"></i> Search ranking over time</h4>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:10px;">
+                <div><span style="color:#64748b;">Today</span> <strong>#${data.rank}</strong></div>
+                <div><span style="color:#64748b;">Trend</span> <span style="background:#dcfce7; padding:0 12px; border-radius:30px; color:#166534;">improving</span></div>
+            </div>
+        </div>
+        <div style="background: white; border-radius: 24px; padding: 16px 22px 22px; border:1px solid #e9edf2;">
+            <h4 style="display:flex; gap:8px; font-weight:600; font-size:1rem;"><i class="fas fa-comment-dots" style="color:#7c3aed;"></i> AI ranking context</h4>
+            <div style="display:flex; flex-wrap:wrap; gap:12px 24px; margin-top:10px;">
+                <div><span style="color:#64748b;">ChatGPT</span> <span style="background:#dbeafe; padding:0 12px; border-radius:30px;">top 3</span></div>
+                <div><span style="color:#64748b;">Claude</span> <span style="background:#dbeafe; padding:0 12px; border-radius:30px;">cited</span></div>
+                <div><span style="color:#64748b;">Perplexity</span> <span style="background:#fef9c3; padding:0 12px; border-radius:30px;">present</span></div>
+                <div><span style="color:#64748b;">Gemini</span> <span style="background:#e0e7ff; padding:0 12px; border-radius:30px;">mentioned</span></div>
+            </div>
+        </div>
+    `;
+}
+
+async function loadHistory() {
+    const keyword = document.getElementById('keywordInput').value.trim().toLowerCase() || 'cartrack';
+    const res = await fetch('/api/history');
+    const history = await res.json();
+    const filtered = history.filter(r => r.keyword === keyword).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    document.querySelector('#historyTable tbody').innerHTML = filtered.map(r => `
+        <tr><td>${r.date}</td><td>${r.time}</td><td>#${r.rank}</td><td>${r.volume}</td><td>${r.difficulty}</td><td>${r.aiStatus}</td></tr>
+    `).join('');
+
+    const labels = filtered.map(r => r.date).reverse();
+    const ranks = filtered.map(r => r.rank).reverse();
+    const volumes = filtered.map(r => parseFloat(r.volume)).reverse();
+
+    new Chart(document.getElementById('rankChart'), { type: 'line', data: { labels, datasets: [{ label: 'Rank', data: ranks, borderColor: '#2563eb' }] }, options: { scales: { y: { reverse: true } }}});
+    new Chart(document.getElementById('volumeChart'), { type: 'bar', data: { labels, datasets: [{ label: 'Volume (K)', data: volumes, backgroundColor: '#10b981' }] }});
+}
+
+// Events
+document.getElementById('searchBtn').addEventListener('click', () => updateOverview(document.getElementById('keywordInput').value.trim()));
+document.getElementById('refreshBtn').addEventListener('click', () => updateOverview(document.getElementById('keywordInput').value.trim()));
+
+document.querySelectorAll('.sample-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        document.getElementById('keywordInput').value = chip.dataset.kw;
+        updateOverview(chip.dataset.kw);
+    });
+});
+
+updateOverview('cartrack');
+</script>
+</body>
+</html>
