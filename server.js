@@ -6,7 +6,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SERP_API_KEY = process.env.SERP_API_KEY;   // ← Put your key here
+const SERP_API_KEY = process.env.SERP_API_KEY;
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -14,8 +14,16 @@ app.use(express.json());
 const dataDir = path.join(__dirname, 'public', 'data');
 const jsonPath = path.join(dataDir, 'keywords-history.json');
 
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+if (!fs.existsSync(jsonPath)) {
+    fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
+}
+
+if (!SERP_API_KEY) {
+    console.error("❌ SERP_API_KEY environment variable is not set!");
+}
 
 function saveRecord(keyword, data) {
     const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
@@ -38,11 +46,19 @@ function saveRecord(keyword, data) {
 async function getEngineRanking(engine, keyword) {
     try {
         const res = await axios.get('https://serpapi.com/search', {
-            params: { engine, q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en" }
+            params: {
+                engine: engine,
+                q: keyword,
+                api_key: SERP_API_KEY,
+                gl: "za",
+                hl: "en"
+            }
         });
 
         const organic = res.data.organic_results || [];
-        const cartrackPos = organic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1;
+        const cartrackPos = organic.findIndex(item => 
+            item.link && item.link.includes('cartrack.co.za')
+        ) + 1;
 
         const aiText = res.data.ai_overview?.text || null;
 
@@ -53,13 +69,22 @@ async function getEngineRanking(engine, keyword) {
             citationConfidence: cartrackPos <= 3 ? "high" : cartrackPos <= 8 ? "medium" : "low"
         };
     } catch (e) {
-        console.error(`Error ${engine}:`, e.message);
-        return { rank: 15, aiStatus: "mentioned", aiSnippet: "Live data unavailable.", citationConfidence: "low" };
+        console.error(`Error fetching ${engine}:`, e.message);
+        return { 
+            rank: 15, 
+            aiStatus: "mentioned", 
+            aiSnippet: "Live data unavailable. Check API key.", 
+            citationConfidence: "low" 
+        };
     }
 }
 
 app.get('/api/refresh', async (req, res) => {
     const keyword = req.query.keyword || 'cartrack';
+
+    if (!SERP_API_KEY) {
+        return res.status(500).json({ success: false, error: "API key not configured" });
+    }
 
     const [google, bing] = await Promise.all([
         getEngineRanking('google', keyword),
@@ -77,12 +102,21 @@ app.get('/api/refresh', async (req, res) => {
     res.json({ success: true, data: record });
 });
 
-app.get('/api/history', (req, res) => res.json(JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]')));
+app.get('/api/history', (req, res) => {
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
+    res.json(data);
+});
+
 app.get('/api/latest', (req, res) => {
     const keyword = (req.query.keyword || 'cartrack').toLowerCase();
     const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
-    const latest = history.filter(r => r.keyword === keyword).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+    const latest = history
+        .filter(r => r.keyword === keyword)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
     res.json(latest || null);
 });
 
-app.listen(PORT, () => console.log(`🚀 Real Ranking Tracker running on ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Real Ranking Tracker running on port ${PORT}`);
+    if (!SERP_API_KEY) console.error("⚠️  SERP_API_KEY is missing!");
+});
