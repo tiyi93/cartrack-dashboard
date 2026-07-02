@@ -33,20 +33,20 @@
         .sample-chip { background: #eef2ff; border-radius: 40px; padding: 4px 18px; font-size: 0.85rem; color: #1e293b; cursor: pointer; transition: 0.1s; border: 1px solid transparent; }
         .sample-chip:hover { background: #dbeafe; border-color: #b9c7f0; }
 
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 780px) { .results-grid { grid-template-columns: 1fr; } }
-
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
         .rank-card { background: white; border-radius: 28px; padding: 20px 24px 26px; border: 1px solid #e9edf2; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-        .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
-        .rank-number { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; }
-        .extra-meta { background: #f8fafc; border-radius: 18px; padding: 12px 16px; margin: 14px 0 6px; display: flex; flex-wrap: wrap; gap: 10px 24px; font-size: 0.9rem; }
+
+        .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+        .rank-number { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; color: #2563eb; }
+        .extra-meta { background: #f8fafc; border-radius: 18px; padding: 12px 16px; margin: 14px 0; display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; }
+
         .keyword-detail-box { margin-top: 16px; background: #fafcff; border-radius: 20px; padding: 14px 18px; border: 1px solid #eef2f6; }
 
-        .chart-container { background: white; border-radius: 24px; padding: 20px; margin: 24px 0; border: 1px solid #e9edf2; }
-        .history-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        .history-table th, .history-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        .history-table th { background: #f8fafc; }
+        .position-list { margin-top: 12px; font-size: 0.9rem; }
+        .position-item { padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+        .position-item:last-child { border-bottom: none; }
 
+        .chart-container { background: white; border-radius: 24px; padding: 20px; margin: 24px 0; border: 1px solid #e9edf2; }
         .status { text-align: center; padding: 20px; color: #64748b; background: #f8fafc; border-radius: 12px; margin: 20px 0; }
         .error { color: #ef4444; background: #fee2e2; padding: 12px; border-radius: 12px; margin: 12px 0; }
     </style>
@@ -56,7 +56,7 @@
     <div class="dashboard-header">
         <h1>
             <i class="fas fa-magnifying-glass-chart" style="color:#2563eb;"></i> Keyword review
-            <small>cartrack.co.za · search + AI ranking</small>
+            <small>cartrack.co.za · Live Rankings</small>
         </h1>
         <div class="badge-date"><i class="far fa-calendar-alt" style="margin-right: 8px;"></i> <span id="lastUpdated">live data</span></div>
     </div>
@@ -77,38 +77,32 @@
                 <button class="btn btn-outline" id="refreshBtn"><i class="fas fa-sync"></i> Refresh Data</button>
             </div>
         </div>
-        
         <div class="sample-chips">
             <span class="sample-chip" data-kw="cartrack">cartrack</span>
             <span class="sample-chip" data-kw="vehicle tracking">vehicle tracking</span>
             <span class="sample-chip" data-kw="fleet management">fleet management</span>
-            <span class="sample-chip" data-kw="cartrack login">cartrack login</span>
+            <span class="sample-chip" data-kw="dashcam">dashcam</span>
             <span class="sample-chip" data-kw="car tracker">car tracker</span>
         </div>
     </div>
 
     <div id="status" class="status" style="display:none;"></div>
 
-    <!-- OVERVIEW TAB -->
+    <!-- OVERVIEW -->
     <div id="overview-tab">
         <div class="results-grid" id="resultsContainer"></div>
-        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;" id="extraDetailRow"></div>
     </div>
 
-    <!-- HISTORY TAB -->
+    <!-- HISTORY -->
     <div id="history-tab" style="display:none;">
         <div class="chart-container">
             <h3><i class="fas fa-chart-line"></i> Ranking Trend Over Time</h3>
             <canvas id="rankChart" height="110"></canvas>
         </div>
-        <div class="chart-container">
-            <h3><i class="fas fa-chart-bar"></i> Volume Trend</h3>
-            <canvas id="volumeChart" height="110"></canvas>
-        </div>
         <div style="background:white; border-radius:24px; padding:20px; border:1px solid #e9edf2;">
             <h3><i class="fas fa-history"></i> Full History</h3>
             <table class="history-table" id="historyTable">
-                <thead><tr><th>Date</th><th>Time</th><th>Google Rank</th><th>Bing Rank</th><th>AI Status</th></tr></thead>
+                <thead><tr><th>Date</th><th>Time</th><th>Google</th><th>Bing</th><th>AI Status</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -129,29 +123,40 @@ document.querySelectorAll('.tab').forEach(tab => {
 async function updateOverview(keyword) {
     const statusEl = document.getElementById('status');
     statusEl.style.display = 'block';
-    statusEl.textContent = `Fetching real rankings for "${keyword}"...`;
-    statusEl.className = "status";
+    statusEl.textContent = `Fetching live results for "${keyword}"...`;
 
     try {
         const res = await fetch(`/api/refresh?keyword=${encodeURIComponent(keyword)}`);
         const result = await res.json();
-
-        if (!result.success || !result.data) throw new Error("No data returned");
-
         const data = result.data;
 
-        const html = `
+        let html = '';
+
+        // Google Card
+        html += `
             <div class="rank-card">
-                <h3><i class="fas fa-search"></i> Google</h3>
-                <div class="rank-big"><span class="rank-number">#${data.googleRank}</span><span class="rank-label">position</span></div>
+                <h3><i class="fas fa-search"></i> Google Results</h3>
+                <div class="rank-big"><span class="rank-number">#${data.google.cartrackPositions[0]?.position || 'N/A'}</span><span class="rank-label">position</span></div>
+                <div class="position-list">
+                    ${data.google.cartrackPositions.map(p => `
+                        <div class="position-item">Position ${p.position}: <a href="${p.link}" target="_blank">${p.title}</a></div>
+                    `).join('')}
+                </div>
             </div>
+        `;
+
+        // Bing Card
+        html += `
             <div class="rank-card">
-                <h3><i class="fas fa-search"></i> Bing / Edge</h3>
-                <div class="rank-big"><span class="rank-number">#${data.bingRank}</span><span class="rank-label">position</span></div>
+                <h3><i class="fas fa-search"></i> Bing / Edge Results</h3>
+                <div class="rank-big"><span class="rank-number">#${data.bing.cartrackPositions[0]?.position || 'N/A'}</span><span class="rank-label">position</span></div>
             </div>
+        `;
+
+        // AI Card
+        html += `
             <div class="rank-card">
                 <h3><i class="fas fa-brain"></i> AI Search</h3>
-                <div class="rank-big"><span class="rank-number">${data.googleAiStatus}</span></div>
                 <div class="keyword-detail-box">
                     <div><span class="label"><i class="fas fa-quote-right"></i> AI snippet:</span> “${data.aiSnippet}”</div>
                     <div style="margin-top:6px;"><span class="label"><i class="fas fa-hashtag"></i> Citation confidence:</span> ${data.citationConfidence}</div>
@@ -164,7 +169,7 @@ async function updateOverview(keyword) {
 
     } catch (err) {
         console.error(err);
-        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to load data. Check server logs or API key.</div>`;
+        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to fetch live data. Check API key and redeploy.</div>`;
     }
 
     statusEl.style.display = 'none';
@@ -187,7 +192,6 @@ async function loadHistory() {
     `).join('');
 }
 
-// Event Listeners
 document.getElementById('searchBtn').addEventListener('click', () => updateOverview(document.getElementById('keywordInput').value.trim()));
 document.getElementById('refreshBtn').addEventListener('click', () => updateOverview(document.getElementById('keywordInput').value.trim()));
 
@@ -198,7 +202,6 @@ document.querySelectorAll('.sample-chip').forEach(chip => {
     });
 });
 
-// Initial load
 updateOverview('cartrack');
 </script>
 </body>

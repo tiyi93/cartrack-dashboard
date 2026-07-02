@@ -8,8 +8,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SERP_API_KEY = process.env.SERP_API_KEY;
 
-console.log("🔑 SERP_API_KEY loaded:", SERP_API_KEY ? "YES (hidden)" : "NO - MISSING!");
-
 app.use(express.static('public'));
 app.use(express.json());
 
@@ -19,39 +17,54 @@ const jsonPath = path.join(dataDir, 'keywords-history.json');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
 
-async function getEngineRanking(engine, keyword) {
-    if (!SERP_API_KEY) {
-        console.error(`❌ No API key for ${engine}`);
-        return { rank: 15, aiStatus: "error", aiSnippet: "API key not configured", citationConfidence: "low" };
-    }
-
+async function getSearchResults(engine, keyword) {
     try {
-        const res = await axios.get('https://serpapi.com/search', {
-            params: { engine, q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en" }
+        const response = await axios.get('https://serpapi.com/search', {
+            params: {
+                engine: engine,
+                q: keyword,
+                api_key: SERP_API_KEY,
+                gl: "za",
+                hl: "en",
+                num: 20  // Get more results to be sure
+            }
         });
 
-        const organic = res.data.organic_results || [];
-        const cartrackPos = organic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1;
+        const data = response.data;
+        const organic = data.organic_results || [];
+
+        // Find Cartrack positions
+        let cartrackPositions = [];
+        organic.forEach((result, index) => {
+            if (result.link && result.link.includes('cartrack.co.za')) {
+                cartrackPositions.push({
+                    position: index + 1,
+                    title: result.title,
+                    link: result.link,
+                    snippet: result.snippet
+                });
+            }
+        });
 
         return {
-            rank: cartrackPos || 20,
-            aiStatus: cartrackPos <= 3 ? "included" : cartrackPos <= 8 ? "cited" : "mentioned",
-            aiSnippet: res.data.ai_overview?.text || "Cartrack fleet tracking solutions.",
-            citationConfidence: cartrackPos <= 3 ? "high" : "medium"
+            engine: engine,
+            totalResults: organic.length,
+            cartrackPositions: cartrackPositions,
+            aiOverview: data.ai_overview ? data.ai_overview.text : null,
+            raw: data  // for debugging
         };
-    } catch (e) {
-        console.error(`Error ${engine}:`, e.message);
-        return { rank: 15, aiStatus: "error", aiSnippet: "API call failed", citationConfidence: "low" };
+    } catch (error) {
+        console.error(`Error fetching ${engine}:`, error.message);
+        return { engine, error: true, cartrackPositions: [] };
     }
 }
 
 app.get('/api/refresh', async (req, res) => {
     const keyword = req.query.keyword || 'cartrack';
-    console.log(`🔍 Fetching rankings for: ${keyword}`);
 
-    const [google, bing] = await Promise.all([
-        getEngineRanking('google', keyword),
-        getEngineRanking('bing', keyword)
+    const [googleResult, bingResult] = await Promise.all([
+        getSearchResults('google', keyword),
+        getSearchResults('bing', keyword)
     ]);
 
     const record = {
@@ -59,11 +72,10 @@ app.get('/api/refresh', async (req, res) => {
         timestamp: new Date().toISOString(),
         date: new Date().toLocaleDateString('en-ZA'),
         time: new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
-        googleRank: google.rank,
-        bingRank: bing.rank,
-        googleAiStatus: google.aiStatus,
-        aiSnippet: google.aiSnippet,
-        citationConfidence: google.citationConfidence
+        google: googleResult,
+        bing: bingResult,
+        aiSnippet: googleResult.aiOverview || "No AI overview available.",
+        citationConfidence: googleResult.cartrackPositions.length > 0 ? "high" : "low"
     };
 
     // Save to history
@@ -75,12 +87,6 @@ app.get('/api/refresh', async (req, res) => {
 });
 
 app.get('/api/history', (req, res) => res.json(JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]')));
-app.get('/api/latest', (req, res) => {
-    const keyword = (req.query.keyword || 'cartrack').toLowerCase();
-    const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
-    const latest = history.filter(r => r.keyword === keyword).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-    res.json(latest || null);
-});
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
