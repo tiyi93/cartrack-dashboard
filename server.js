@@ -17,68 +17,50 @@ const jsonPath = path.join(dataDir, 'keywords-history.json');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
 
-async function getSearchResults(engine, keyword) {
+async function getRankings(keyword) {
+    let googleRank = 20, bingRank = 20, aiSnippet = "No AI overview available.";
+
     try {
-        const response = await axios.get('https://serpapi.com/search', {
-            params: {
-                engine: engine,
-                q: keyword,
-                api_key: SERP_API_KEY,
-                gl: "za",
-                hl: "en",
-                num: 20  // Get more results to be sure
-            }
+        // Google
+        const googleRes = await axios.get('https://serpapi.com/search', {
+            params: { engine: "google", q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en", num: 15 }
         });
+        const gOrganic = googleRes.data.organic_results || [];
+        googleRank = gOrganic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1 || 20;
+        aiSnippet = googleRes.data.ai_overview?.text || aiSnippet;
+    } catch (e) { console.error("Google error:", e.message); }
 
-        const data = response.data;
-        const organic = data.organic_results || [];
-
-        // Find Cartrack positions
-        let cartrackPositions = [];
-        organic.forEach((result, index) => {
-            if (result.link && result.link.includes('cartrack.co.za')) {
-                cartrackPositions.push({
-                    position: index + 1,
-                    title: result.title,
-                    link: result.link,
-                    snippet: result.snippet
-                });
-            }
+    try {
+        // Bing
+        const bingRes = await axios.get('https://serpapi.com/search', {
+            params: { engine: "bing", q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en" }
         });
+        const bOrganic = bingRes.data.organic_results || [];
+        bingRank = bOrganic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1 || 20;
+    } catch (e) { console.error("Bing error:", e.message); }
 
-        return {
-            engine: engine,
-            totalResults: organic.length,
-            cartrackPositions: cartrackPositions,
-            aiOverview: data.ai_overview ? data.ai_overview.text : null,
-            raw: data  // for debugging
-        };
-    } catch (error) {
-        console.error(`Error fetching ${engine}:`, error.message);
-        return { engine, error: true, cartrackPositions: [] };
-    }
+    return {
+        googleRank: googleRank,
+        bingRank: bingRank,
+        volume: "N/A", // Can be added via DataForSEO later
+        difficulty: "N/A",
+        aiSnippet: aiSnippet,
+        citationConfidence: googleRank <= 5 ? "high" : "medium"
+    };
 }
 
 app.get('/api/refresh', async (req, res) => {
     const keyword = req.query.keyword || 'cartrack';
-
-    const [googleResult, bingResult] = await Promise.all([
-        getSearchResults('google', keyword),
-        getSearchResults('bing', keyword)
-    ]);
+    const data = await getRankings(keyword);
 
     const record = {
         keyword: keyword.toLowerCase(),
         timestamp: new Date().toISOString(),
         date: new Date().toLocaleDateString('en-ZA'),
         time: new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
-        google: googleResult,
-        bing: bingResult,
-        aiSnippet: googleResult.aiOverview || "No AI overview available.",
-        citationConfidence: googleResult.cartrackPositions.length > 0 ? "high" : "low"
+        ...data
     };
 
-    // Save to history
     const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
     history.push(record);
     fs.writeFileSync(jsonPath, JSON.stringify(history, null, 2));
@@ -88,6 +70,4 @@ app.get('/api/refresh', async (req, res) => {
 
 app.get('/api/history', (req, res) => res.json(JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]')));
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

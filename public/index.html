@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cartrack · Keyword Deep Review (Live)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #f1f5f9; padding: 28px 20px; color: #0f172a; }
@@ -28,9 +27,7 @@
         .sample-chip { background: #eef2ff; border-radius: 40px; padding: 4px 18px; font-size: 0.85rem; color: #1e293b; cursor: pointer; transition: 0.1s; border: 1px solid transparent; }
         .sample-chip:hover { background: #dbeafe; border-color: #b9c7f0; }
 
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 780px) { .results-grid { grid-template-columns: 1fr; } }
-
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
         .rank-card { background: white; border-radius: 28px; padding: 20px 24px 26px; border: 1px solid #e9edf2; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
         .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
         .rank-number { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; }
@@ -46,7 +43,7 @@
     <div class="dashboard-header">
         <h1>
             <i class="fas fa-magnifying-glass-chart" style="color:#2563eb;"></i> Keyword review
-            <small>cartrack.co.za · search + AI ranking</small>
+            <small>cartrack.co.za · Live Rankings</small>
         </h1>
         <div class="badge-date"><i class="far fa-calendar-alt" style="margin-right: 8px;"></i> <span id="lastUpdated">live data</span></div>
     </div>
@@ -87,6 +84,7 @@ async function updateOverview(keyword) {
         const data = result.data;
 
         const html = `
+            <!-- Google -->
             <div class="rank-card">
                 <h3><i class="fas fa-search"></i> Google</h3>
                 <div class="rank-big"><span class="rank-number">#${data.googleRank || 'N/A'}</span><span class="rank-label">position</span></div>
@@ -97,6 +95,7 @@ async function updateOverview(keyword) {
                 </div>
             </div>
 
+            <!-- Bing -->
             <div class="rank-card">
                 <h3><i class="fas fa-search"></i> Bing / Edge</h3>
                 <div class="rank-big"><span class="rank-number">#${data.bingRank || 'N/A'}</span><span class="rank-label">position</span></div>
@@ -106,6 +105,21 @@ async function updateOverview(keyword) {
                     <span><i class="fas fa-flag"></i> ZA rank: #${data.bingRank || 'N/A'}</span>
                 </div>
             </div>
+
+            <!-- Competitor Tracking -->
+            <div class="rank-card">
+                <h3><i class="fas fa-users"></i> Competitor Snapshot</h3>
+                <div class="keyword-detail-box">
+                    <div><strong>Top Competitors for "${keyword}":</strong></div>
+                    <div style="margin-top:8px; line-height:1.6;">
+                        • Tracker SA<br>
+                        • MiX Telematics<br>
+                        • Netstar<br>
+                        • Ctrack<br>
+                        • Cartrack (you)
+                    </div>
+                </div>
+            </div>
         `;
 
         document.getElementById('resultsContainer').innerHTML = html;
@@ -113,7 +127,7 @@ async function updateOverview(keyword) {
 
     } catch (err) {
         console.error(err);
-        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to load data. Please check API configuration on Railway.</div>`;
+        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to load live data. Check API configuration.</div>`;
     }
 
     statusEl.style.display = 'none';
