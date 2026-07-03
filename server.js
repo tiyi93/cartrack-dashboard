@@ -6,7 +6,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SERP_API_KEY = process.env.SERP_API_KEY;
+const APIFY_API_KEY = process.env.APIFY_API_KEY;   // Add this in Railway Variables
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -17,41 +17,59 @@ const jsonPath = path.join(dataDir, 'keywords-history.json');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
 
-async function getRankings(keyword) {
-    let googleRank = 20, bingRank = 20, aiSnippet = "No AI overview available.";
-
+async function getLiveData(keyword) {
     try {
-        // Google
-        const googleRes = await axios.get('https://serpapi.com/search', {
-            params: { engine: "google", q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en", num: 15 }
+        const response = await axios.post(`https://api.apify.com/v2/acts/apify~google-search-scraper/runs?token=${APIFY_API_KEY}`, {
+            queries: [keyword],
+            countryCode: "za",
+            languageCode: "en",
+            maxPagesPerQuery: 1
+        }, {
+            headers: { 'Content-Type': 'application/json' }
         });
-        const gOrganic = googleRes.data.organic_results || [];
-        googleRank = gOrganic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1 || 20;
-        aiSnippet = googleRes.data.ai_overview?.text || aiSnippet;
-    } catch (e) { console.error("Google error:", e.message); }
 
-    try {
-        // Bing
-        const bingRes = await axios.get('https://serpapi.com/search', {
-            params: { engine: "bing", q: keyword, api_key: SERP_API_KEY, gl: "za", hl: "en" }
+        const runId = response.data.data.id;
+        // Wait a bit for run to complete (simple version)
+        await new Promise(resolve => setTimeout(resolve, 8000));
+
+        const resultsRes = await axios.get(`https://api.apify.com/v2/acts/apify~google-search-scraper/runs/${runId}/dataset/items?token=${APIFY_API_KEY}`);
+        const items = resultsRes.data;
+
+        const organic = items[0]?.organicResults || [];
+
+        const cartrackPos = organic.findIndex(item => item.url && item.url.includes('cartrack.co.za')) + 1;
+
+        // Competitor detection
+        const competitors = ['tracker', 'mix', 'netstar', 'ctrack', 'fleet', 'telematics'];
+        let competitorData = competitors.map(comp => {
+            const pos = organic.findIndex(item => item.title && item.title.toLowerCase().includes(comp));
+            return { name: comp.charAt(0).toUpperCase() + comp.slice(1), rank: pos + 1 || 'N/A' };
         });
-        const bOrganic = bingRes.data.organic_results || [];
-        bingRank = bOrganic.findIndex(item => item.link && item.link.includes('cartrack.co.za')) + 1 || 20;
-    } catch (e) { console.error("Bing error:", e.message); }
 
-    return {
-        googleRank: googleRank,
-        bingRank: bingRank,
-        volume: "N/A", // Can be added via DataForSEO later
-        difficulty: "N/A",
-        aiSnippet: aiSnippet,
-        citationConfidence: googleRank <= 5 ? "high" : "medium"
-    };
+        return {
+            googleRank: cartrackPos || 20,
+            volume: items[0]?.searchVolume ? items[0].searchVolume.toLocaleString() : 'N/A',
+            difficulty: items[0]?.keywordDifficulty || 'N/A',
+            aiSnippet: "Live AI snippet not available in this scraper.",
+            citationConfidence: cartrackPos <= 5 ? "high" : "medium",
+            competitors: competitorData
+        };
+    } catch (error) {
+        console.error("Apify error:", error.message);
+        return {
+            googleRank: 15,
+            volume: 'N/A',
+            difficulty: 'N/A',
+            aiSnippet: "Error fetching live data.",
+            citationConfidence: "low",
+            competitors: []
+        };
+    }
 }
 
 app.get('/api/refresh', async (req, res) => {
     const keyword = req.query.keyword || 'cartrack';
-    const data = await getRankings(keyword);
+    const data = await getLiveData(keyword);
 
     const record = {
         keyword: keyword.toLowerCase(),

@@ -76,7 +76,7 @@
 async function updateOverview(keyword) {
     const statusEl = document.getElementById('status');
     statusEl.style.display = 'block';
-    statusEl.textContent = `Fetching live rankings for "${keyword}"...`;
+    statusEl.textContent = `Fetching live data for "${keyword}"...`;
 
     try {
         const res = await fetch(`/api/refresh?keyword=${encodeURIComponent(keyword)}`);
@@ -89,9 +89,9 @@ async function updateOverview(keyword) {
                 <h3><i class="fas fa-search"></i> Google</h3>
                 <div class="rank-big"><span class="rank-number">#${data.googleRank || 'N/A'}</span><span class="rank-label">position</span></div>
                 <div class="extra-meta">
-                    <span><i class="fas fa-volume-up"></i> Volume: ${data.volume || 'N/A'}</span>
-                    <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty || 'N/A'}</span>
-                    <span><i class="fas fa-flag"></i> ZA rank: #${data.googleRank || 'N/A'}</span>
+                    <span><i class="fas fa-volume-up"></i> Volume: ${data.volume}</span>
+                    <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty}</span>
+                    <span><i class="fas fa-flag"></i> ZA rank: #${data.googleRank}</span>
                 </div>
             </div>
 
@@ -100,9 +100,9 @@ async function updateOverview(keyword) {
                 <h3><i class="fas fa-search"></i> Bing / Edge</h3>
                 <div class="rank-big"><span class="rank-number">#${data.bingRank || 'N/A'}</span><span class="rank-label">position</span></div>
                 <div class="extra-meta">
-                    <span><i class="fas fa-volume-up"></i> Volume: ${data.volume || 'N/A'}</span>
-                    <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty || 'N/A'}</span>
-                    <span><i class="fas fa-flag"></i> ZA rank: #${data.bingRank || 'N/A'}</span>
+                    <span><i class="fas fa-volume-up"></i> Volume: ${data.volume}</span>
+                    <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty}</span>
+                    <span><i class="fas fa-flag"></i> ZA rank: #${data.bingRank}</span>
                 </div>
             </div>
 
@@ -110,14 +110,11 @@ async function updateOverview(keyword) {
             <div class="rank-card">
                 <h3><i class="fas fa-users"></i> Competitor Snapshot</h3>
                 <div class="keyword-detail-box">
-                    <div><strong>Top Competitors for "${keyword}":</strong></div>
-                    <div style="margin-top:8px; line-height:1.6;">
-                        • Tracker SA<br>
-                        • MiX Telematics<br>
-                        • Netstar<br>
-                        • Ctrack<br>
-                        • Cartrack (you)
-                    </div>
+                    ${data.competitors && data.competitors.length > 0 ? 
+                        data.competitors.map(c => `
+                            <div style="margin:6px 0;">• <strong>${c.name}</strong> → Position #${c.rank}</div>
+                        `).join('') : 
+                        '<div>No competitor data available yet.</div>'}
                 </div>
             </div>
         `;
@@ -127,7 +124,7 @@ async function updateOverview(keyword) {
 
     } catch (err) {
         console.error(err);
-        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to load live data. Check API configuration.</div>`;
+        document.getElementById('resultsContainer').innerHTML = `<div class="error">Failed to load live data.</div>`;
     }
 
     statusEl.style.display = 'none';
