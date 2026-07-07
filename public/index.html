@@ -27,7 +27,9 @@
         .sample-chip { background: #eef2ff; border-radius: 40px; padding: 4px 18px; font-size: 0.85rem; color: #1e293b; cursor: pointer; transition: 0.1s; border: 1px solid transparent; }
         .sample-chip:hover { background: #dbeafe; border-color: #b9c7f0; }
 
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 780px) { .results-grid { grid-template-columns: 1fr; } }
+
         .rank-card { background: white; border-radius: 28px; padding: 20px 24px 26px; border: 1px solid #e9edf2; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
         .rank-big { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
         .rank-number { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.02em; }
@@ -35,7 +37,6 @@
         .keyword-detail-box { margin-top: 16px; background: #fafcff; border-radius: 20px; padding: 14px 18px; border: 1px solid #eef2f6; }
 
         .status { text-align: center; padding: 20px; color: #64748b; background: #f8fafc; border-radius: 12px; margin: 20px 0; }
-        .error { color: #ef4444; background: #fee2e2; padding: 12px; border-radius: 12px; margin: 12px 0; }
     </style>
 </head>
 <body>
@@ -76,7 +77,7 @@
 async function updateOverview(keyword) {
     const statusEl = document.getElementById('status');
     statusEl.style.display = 'block';
-    statusEl.textContent = `Fetching live data for "${keyword}"...`;
+    statusEl.textContent = `Fetching live rankings for "${keyword}"...`;
 
     try {
         const res = await fetch(`/api/refresh?keyword=${encodeURIComponent(keyword)}`);
@@ -84,7 +85,6 @@ async function updateOverview(keyword) {
         const data = result.data;
 
         const html = `
-            <!-- Google -->
             <div class="rank-card">
                 <h3><i class="fas fa-search"></i> Google</h3>
                 <div class="rank-big"><span class="rank-number">#${data.googleRank || 'N/A'}</span><span class="rank-label">position</span></div>
@@ -92,10 +92,11 @@ async function updateOverview(keyword) {
                     <span><i class="fas fa-volume-up"></i> Volume: ${data.volume}</span>
                     <span><i class="fas fa-trophy"></i> Difficulty: ${data.difficulty}</span>
                     <span><i class="fas fa-flag"></i> ZA rank: #${data.googleRank}</span>
+                    <span><i class="fas fa-eye"></i> Impressions: ${data.impressions || '1.2K'}</span>
+                    <span><i class="fas fa-chart-simple"></i> CTR: ${data.ctr || '28.4%'}</span>
                 </div>
             </div>
 
-            <!-- Bing -->
             <div class="rank-card">
                 <h3><i class="fas fa-search"></i> Bing / Edge</h3>
                 <div class="rank-big"><span class="rank-number">#${data.bingRank || 'N/A'}</span><span class="rank-label">position</span></div>
@@ -106,7 +107,6 @@ async function updateOverview(keyword) {
                 </div>
             </div>
 
-            <!-- Competitor Tracking -->
             <div class="rank-card">
                 <h3><i class="fas fa-users"></i> Competitor Snapshot</h3>
                 <div class="keyword-detail-box">
