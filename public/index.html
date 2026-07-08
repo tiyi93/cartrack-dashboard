@@ -94,6 +94,8 @@ async function updateOverview(keyword) {
                     <span><i class="fas fa-flag"></i> ZA rank: #${data.googleRank}</span>
                     <span><i class="fas fa-eye"></i> Impressions: ${data.impressions || '1.2K'}</span>
                     <span><i class="fas fa-chart-simple"></i> CTR: ${data.ctr || '28.4%'}</span>
+                    <span><i class="fas fa-percentage"></i> Share of Voice: ${data.shareOfVoice}</span>
+                    <span><i class="fas fa-tag"></i> ${data.shortTail ? 'Short Tail' : data.longTail ? 'Long Tail' : 'Medium Tail'}</span>
                 </div>
             </div>
 
