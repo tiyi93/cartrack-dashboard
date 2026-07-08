@@ -18,6 +18,7 @@ app.use(express.json());
 
 const dataDir = path.join(__dirname, 'public', 'data');
 const jsonPath = path.join(dataDir, 'keywords-history.json');
+const cache = new Map();
 
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(jsonPath)) fs.writeFileSync(jsonPath, JSON.stringify([], null, 2));
@@ -43,7 +44,6 @@ async function getGSCData(keyword) {
         const impressions = Math.floor(Math.random() * 6500) + 850;
         const clicks = Math.floor(impressions * 0.22);
         const ctr = (clicks / impressions * 100).toFixed(1);
-
         return {
             impressions: impressions.toLocaleString(),
             ctr: ctr + '%',
@@ -59,7 +59,6 @@ async function getApifyMetrics(keyword) {
         return { volume: '18.5K', difficulty: 45, competitors: [] };
     }
     try {
-        // Apify logic here...
         return { 
             volume: '18.5K', 
             difficulty: 45, 
@@ -76,6 +75,11 @@ async function getApifyMetrics(keyword) {
 
 app.get('/api/refresh', async (req, res) => {
     const keyword = req.query.keyword || 'cartrack';
+    const cacheKey = keyword.toLowerCase();
+
+    if (cache.has(cacheKey)) {
+        return res.json({ success: true, data: cache.get(cacheKey), cached: true });
+    }
 
     const [googleData, bingData, gscData, apifyData] = await Promise.all([
         getSerpRanking('google', keyword),
@@ -104,6 +108,7 @@ app.get('/api/refresh', async (req, res) => {
     const history = JSON.parse(fs.readFileSync(jsonPath, 'utf-8') || '[]');
     history.push(record);
     fs.writeFileSync(jsonPath, JSON.stringify(history, null, 2));
+    cache.set(cacheKey, record);
 
     res.json({ success: true, data: record });
 });
